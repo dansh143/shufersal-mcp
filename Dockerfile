@@ -1,25 +1,34 @@
-# בסיס עם Chrome+תלויות+Puppeteer בפנים
+# Image עם Chromium + Puppeteer מוכן
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# מתקינים Python+pip כדי למשוך mcp-proxy (SSE/HTTP bridge)
+# עבודה כ-root כדי להתקין כלים גלובליים
 USER root
-RUN apt-get update && apt-get install -y python3-pip && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir mcp-proxy
 
-# נעתיק את קוד שרת ה-MCP (ה-fork שלך)
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build   # לפי ה-README של הפרויקט
-
-# הגדרות קטנות לכרומיום בסביבה קונטיינרית
+# תקן locale/permissions קליל (אופציונלי)
 ENV XDG_CONFIG_HOME=/tmp/.chromium
 ENV XDG_CACHE_HOME=/tmp/.chromium
 
-# Render יזריק PORT; נקשיב עליו
+# התקנות NPM: הפרויקט עצמו + שרת HTTP ל-MC
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci || npm install
+COPY . .
+
+# אם יש TypeScript:
+RUN npm run build || true   # אל תיפול אם אין תהליך build
+
+# מתקינים גלובלית CLI ל-MCP עם שרת HTTP (ללא pip)
+RUN npm install -g @modelcontextprotocol/cli @modelcontextprotocol/server-http
+
+# Render יזריק PORT; נאזין עליו
 ENV PORT=8080
 EXPOSE 8080
 
-# מריצים את גשר ה-SSE/HTTP שפותח פורט ומריץ את שרת ה-MCP stdio
-CMD ["mcp-proxy","--host","0.0.0.0","--port","8080","--","node","dist/index.js","--user-data-dir","/tmp/puppeteer-user-data"]
+# מפעילים את שרת ה-HTTP של MCP, והוא מריץ את שרת ה-MCP (stdio) כ-child
+# שים לב: אם קובץ הכניסה שלך הוא dist/index.js – השאר כמו שהוא;
+# אם זה index.js בשורש, החלף ל..."node","index.js"
+CMD ["mcp-server-http",
+     "--host","0.0.0.0",
+     "--port","8080",
+     "--",
+     "node","dist/index.js","--user-data-dir","/tmp/puppeteer-user-data"]
