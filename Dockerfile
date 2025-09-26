@@ -1,30 +1,31 @@
-# Image עם Chromium + Puppeteer מוכן
+# Image בסיסי עם Puppeteer + Chromium
 FROM ghcr.io/puppeteer/puppeteer:latest
 
-# עבודה כ-root כדי להתקין כלים גלובליים
 USER root
+WORKDIR /app
 
-# תקן locale/permissions קליל (אופציונלי)
+# התקנת תלויות פרויקט
+COPY package*.json ./
+RUN npm ci || npm install
+
+# נעתיק את כל הקבצים (כולל bridge.js)
+COPY . .
+
+# אם יש TypeScript – ננסה לבנות; אם אין, נמשיך הלאה
+RUN npm run build || true
+
+# קונפיג ל-Chromium בתוך קונטיינר
 ENV XDG_CONFIG_HOME=/tmp/.chromium
 ENV XDG_CACHE_HOME=/tmp/.chromium
 
-# התקנות NPM: הפרויקט עצמו + שרת HTTP ל-MC
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci || npm install
-COPY . .
+# ברירת מחדל – להריץ את MCP דרך node dist/index.js
+# אפשר לשנות ל-index.js עם ENV MCP_ARGS=index.js
+ENV MCP_CMD=node
+ENV MCP_ARGS=dist/index.js
 
-# אם יש TypeScript:
-RUN npm run build || true   # אל תיפול אם אין תהליך build
-
-# מתקינים גלובלית CLI ל-MCP עם שרת HTTP (ללא pip)
-RUN npm install -g @modelcontextprotocol/cli @modelcontextprotocol/server-http
-
-# Render יזריק PORT; נאזין עליו
+# Render יכניס PORT, נקשיב עליו
 ENV PORT=8080
 EXPOSE 8080
 
-# מפעילים את שרת ה-HTTP של MCP, והוא מריץ את שרת ה-MCP (stdio) כ-child
-# שים לב: אם קובץ הכניסה שלך הוא dist/index.js – השאר כמו שהוא;
-# אם זה index.js בשורש, החלף ל..."node","index.js"
-CMD ["mcp-server-http", "--host", "0.0.0.0", "--port", "8080", "--", "node", "dist/index.js", "--user-data-dir", "/tmp/puppeteer-user-data"]
+# הפקודה הסופית: מריצה את bridge.js שמאזין ל-HTTP
+CMD ["node","bridge.js"]
