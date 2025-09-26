@@ -27,8 +27,4 @@ EXPOSE 8080
 # מפעילים את שרת ה-HTTP של MCP, והוא מריץ את שרת ה-MCP (stdio) כ-child
 # שים לב: אם קובץ הכניסה שלך הוא dist/index.js – השאר כמו שהוא;
 # אם זה index.js בשורש, החלף ל..."node","index.js"
-CMD ["mcp-server-http",
-     "--host","0.0.0.0",
-     "--port","8080",
-     "--",
-     "node","dist/index.js","--user-data-dir","/tmp/puppeteer-user-data"]
+CMD ["mcp-server-http", "--host", "0.0.0.0", "--port", "8080", "--", "node", "dist/index.js", "--user-data-dir", "/tmp/puppeteer-user-data"]
